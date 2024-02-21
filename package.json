@@ -3,19 +3,27 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "ts-node-dev --rs ./src/index.ts",
+    "dev": "ts-node-dev --watch ./.env  --rs ./src/index.ts",
+	"types": "tsc --noEmit --project ./tsconfig.json",
+	"pmd": "prisma migrate dev",
+    "pgc": "prisma generate",
     "build": "rimraf ./dist && tsc --build ./tsconfig.json",
     "start": "node ./dist/index.js",
     "prettify": "prettier --log-level warn --cache --write '{src/**/*,*}.{ts,tsx,js,json,yml,scss}'"
   },
+  "prisma": {
+    "schema": "./src/prisma/schema.prisma"
+  },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "prettier": "^3.2.5",
+    "prisma": "^5.10.1",
     "rimraf": "^5.0.5",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@prisma/client": "^5.10.1",
     "express": "^4.18.2"
   }
 }

@@ -2,6 +2,11 @@ import express, { json } from 'express'
 import { createSeed } from './lib/seed'
 import { AppContext, createAppContext } from './lib/ctx'
 import cors from 'cors'
+import { getENV } from './lib/env'
+import { applyPassportToExpressApp } from './lib/passport'
+import { signJWT } from './utils/signJWT'
+
+const env = getENV()
 
 void (async () => {
   let ctx: AppContext | null
@@ -10,14 +15,20 @@ void (async () => {
     if (!ctx) {
       throw Error('Context doesnt create')
     }
+
     await createSeed(ctx.prisma)
     const expressApp = express()
     expressApp.use(cors())
+    applyPassportToExpressApp(expressApp, ctx)
     expressApp.use(json())
 
     //get all reception days
     expressApp.get('/reception-days', async (req, res, next) => {
       try {
+        if (!req.user) {
+          throw Error('UNAUTHORIZED')
+        }
+
         const receptionDays = await ctx?.prisma.receptionDay.findMany()
 
         res.status(200).send(receptionDays)
@@ -47,8 +58,10 @@ void (async () => {
           throw Error('User doesnt exist')
         }
 
+        const token = signJWT(user.id)
+
         res.status(200).send({
-          token: 'token',
+          token: token,
         })
       } catch (e) {
         next(e)
@@ -163,7 +176,7 @@ void (async () => {
       }
     })
 
-    expressApp.listen(3000, () => {
+    expressApp.listen(env.PORT, () => {
       console.info('Listening at http://localhost:3000')
     })
   } catch (e: any) {

@@ -1,6 +1,7 @@
 import express, { json } from 'express'
 import { createSeed } from './lib/seed'
 import { AppContext, createAppContext } from './lib/ctx'
+import cors from 'cors'
 
 void (async () => {
   let ctx: AppContext | null
@@ -11,6 +12,7 @@ void (async () => {
     }
     await createSeed(ctx.prisma)
     const expressApp = express()
+    expressApp.use(cors())
     expressApp.use(json())
 
     //get all reception days

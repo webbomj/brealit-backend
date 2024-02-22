@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "ts-node-dev --watch ./.env  --rs ./src/index.ts",
-	"types": "tsc --noEmit --project ./tsconfig.json",
-	"pmd": "prisma migrate dev",
+    "types": "tsc --noEmit --project ./tsconfig.json",
+    "pmd": "prisma migrate dev",
     "pgc": "prisma generate",
     "build": "rimraf ./dist && tsc --build ./tsconfig.json",
     "start": "node ./dist/index.js",
@@ -24,6 +24,8 @@
   },
   "dependencies": {
     "@prisma/client": "^5.10.1",
+    "@types/cors": "^2.8.17",
+    "cors": "^2.8.5",
     "express": "^4.18.2"
   }
 }

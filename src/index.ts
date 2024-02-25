@@ -1,9 +1,11 @@
+import { Patient } from '@prisma/client'
+import cors from 'cors'
 import express, { json } from 'express'
 import { createSeed } from './lib/seed'
 import { AppContext, createAppContext } from './lib/ctx'
-import cors from 'cors'
 import { getENV } from './lib/env'
 import { applyPassportToExpressApp } from './lib/passport'
+import { toClientMe } from './lib/models'
 import { signJWT } from './utils/signJWT'
 
 const env = getENV()
@@ -18,9 +20,45 @@ void (async () => {
 
     await createSeed(ctx.prisma)
     const expressApp = express()
+    expressApp.use(json())
     expressApp.use(cors())
     applyPassportToExpressApp(expressApp, ctx)
-    expressApp.use(json())
+
+    //protected
+    expressApp.get('/get-me', (req, res) => {
+      res.json({ success: !!req.user ?? false, me: toClientMe(req.user as Patient) })
+    })
+
+    //login
+    expressApp.post('/login', async (req, res, next) => {
+      try {
+        const login = req.body?.login
+        const password = req.body?.password
+
+        if (!login || !password) {
+          res.status(400).send({ error: 'Login and password required' })
+        }
+
+        const user = await ctx?.prisma.patient.findUnique({
+          where: {
+            login: login,
+            password: password,
+          },
+        })
+
+        if (!user) {
+          res.status(400).send({ error: 'User doesnt exist' })
+        }
+
+        const token = signJWT(user?.id ?? 0)
+
+        res.status(200).send({
+          token: token,
+        })
+      } catch (e) {
+        next(e)
+      }
+    })
 
     //get all reception days
     expressApp.get('/reception-days', async (req, res, next) => {
@@ -37,39 +75,8 @@ void (async () => {
       }
     })
 
-    //login
-    expressApp.get('/login', async (req, res, next) => {
-      try {
-        const login = req.body?.login
-        const password = req.body?.password
-
-        if (!login || !password) {
-          res.status(400).send('Login and password required')
-        }
-
-        const user = await ctx?.prisma.patient.findUnique({
-          where: {
-            login: login,
-            password: password,
-          },
-        })
-
-        if (!user) {
-          throw Error('User doesnt exist')
-        }
-
-        const token = signJWT(user.id)
-
-        res.status(200).send({
-          token: token,
-        })
-      } catch (e) {
-        next(e)
-      }
-    })
-
     //get pacient
-    expressApp.get('/pacient/', async (req, res, next) => {
+    expressApp.get('/patient/', async (req, res, next) => {
       try {
         const pacientId = Number(req.body.pacientId)
         const user = await ctx?.prisma.patient.findUnique({
@@ -100,7 +107,7 @@ void (async () => {
 
     //appointment-pacient
 
-    expressApp.get('/appointment-pacient/', async (req, res, next) => {
+    expressApp.get('/appointment-patient/', async (req, res, next) => {
       try {
         const patientId = Number(req.body.pacientId)
         const receptionDayId = Number(req.body.receptionDayId)

@@ -24,9 +24,29 @@ void (async () => {
     expressApp.use(cors())
     applyPassportToExpressApp(expressApp, ctx)
 
-    //protected
+    //get Me
     expressApp.get('/get-me', (req, res) => {
-      res.json({ success: !!req.user ?? false, me: toClientMe(req.user as Patient) })
+      res.send({ success: !!req.user ?? false, me: toClientMe(req.user as Patient) })
+    })
+
+    expressApp.get('/doctor', async (req, res, next) => {
+      try {
+        if (!req.user) {
+          throw Error('UNAUTHORIZED')
+        }
+
+        const doctor = await ctx?.prisma.doctor.findFirst({
+          select: {
+            id: true,
+            description: true,
+            name: true,
+          },
+        })
+
+        res.status(200).send(doctor)
+      } catch (e) {
+        next(e)
+      }
     })
 
     //login
@@ -67,7 +87,11 @@ void (async () => {
           throw Error('UNAUTHORIZED')
         }
 
-        const receptionDays = await ctx?.prisma.receptionDay.findMany()
+        const receptionDays = await ctx?.prisma.receptionDay.findMany({
+          orderBy: {
+            date: 'asc',
+          },
+        })
 
         res.status(200).send(receptionDays)
       } catch (e) {
@@ -78,15 +102,19 @@ void (async () => {
     //get pacient
     expressApp.get('/patient/', async (req, res, next) => {
       try {
-        const pacientId = Number(req.body.pacientId)
+        if (!req.user) {
+          throw Error('UNAUTHORIZED')
+        }
+
+        const reqUser = req.user as Patient
         const user = await ctx?.prisma.patient.findUnique({
           where: {
-            id: pacientId,
+            login: reqUser.login,
           },
           include: {
             patienReceptionDay: {
               where: {
-                patientId: pacientId,
+                patientId: reqUser.id,
               },
               select: {
                 receptionDay: true,
@@ -107,9 +135,14 @@ void (async () => {
 
     //appointment-pacient
 
-    expressApp.get('/appointment-patient/', async (req, res, next) => {
+    expressApp.post('/appointment-patient/', async (req, res, next) => {
       try {
-        const patientId = Number(req.body.pacientId)
+        if (!req.user) {
+          throw Error('UNAUTHORIZED')
+        }
+
+        const reqUser = req.user as Patient
+        // const patientId = Number(req.body.pacientId)
         const receptionDayId = Number(req.body.receptionDayId)
 
         const receptionDay = await ctx?.prisma.receptionDay.findUnique({
@@ -122,13 +155,9 @@ void (async () => {
           throw Error('Day doesnt exist')
         }
 
-        if (receptionDay?.numberOfPatients <= 0) {
-          throw Error('There are no available seats')
-        }
-
         const patientReceptionDay = await ctx?.prisma.patientReceptionDay.findFirst({
           where: {
-            patientId: patientId,
+            patientId: reqUser.id,
             receptionDayId: receptionDayId,
           },
         })
@@ -137,10 +166,10 @@ void (async () => {
           await ctx?.prisma.patientReceptionDay.delete({
             where: {
               receptionDayId_patientId: {
-                patientId: patientId,
+                patientId: reqUser.id,
                 receptionDayId: receptionDayId,
               },
-              patientId: patientId,
+              patientId: reqUser.id,
               receptionDayId: receptionDayId,
             },
           })
@@ -157,9 +186,12 @@ void (async () => {
           })
           console.log('Deleted')
         } else {
+          if (receptionDay?.numberOfPatients <= 0) {
+            throw Error('There are no available seats')
+          }
           await ctx?.prisma.patientReceptionDay.create({
             data: {
-              patientId: patientId,
+              patientId: reqUser.id,
               receptionDayId: receptionDayId,
             },
           })
@@ -177,8 +209,14 @@ void (async () => {
           console.log('Created')
         }
 
-        res.status(200).send('Created')
-      } catch (e) {
+        res.status(200).send({
+          error: '',
+          success: true,
+        })
+      } catch (e: any) {
+        res.status(200).send({
+          error: e.message,
+        })
         next(e)
       }
     })

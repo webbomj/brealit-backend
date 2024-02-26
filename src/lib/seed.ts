@@ -35,6 +35,7 @@ export const createSeed = async (prisma: PrismaClient) => {
       create: {
         ...day,
         doctorId: doctor.id,
+        quantity: day.numberOfPatients,
       },
       update: {},
       where: {

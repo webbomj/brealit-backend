@@ -19,6 +19,7 @@ model ReceptionDay {
     id                 Int                   @id @default(autoincrement())
     date               DateTime              @unique
     numberOfPatients   Int
+    quantity           Int
     doctorId           Int
     doctor             Doctor                @relation(fields: [doctorId], references: [id])
     patienReceptionDay PatientReceptionDay[]
